@@ -26,7 +26,7 @@ module.exports = {
     },
     'github': {
       'clientID': '6f5e5ca9d2df9f124b7e',
-      'clientSecret': process.env.GH_SECRET,
+      'clientSecret': process.env.GITHUB_SECRET,
       'successRedirect': '/'
     },
     'cookie': {

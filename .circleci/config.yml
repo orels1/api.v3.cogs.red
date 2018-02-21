@@ -1,0 +1,96 @@
+defaults: &defaults
+  working_directory: ~/repo
+  docker:
+    - image: circleci/node:9.2
+
+version: 2
+general:
+  branches:
+    only:
+      - master
+      - develop
+      - /release\/.*/
+      - /feature\/.*/
+      - /hotfix\/.*/
+
+jobs:
+  checkout_code:
+    <<: *defaults
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - ./
+  test:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ./
+
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+
+      - run: yarn install
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+
+      - run: yarn mocha
+ 
+  eslint:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ./
+
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+
+      - run: yarn install
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+
+      - run: yarn eslint
+    
+  deploy-dev:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ./
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - run: echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+      - run: docker build -q -f dev.Dockerfile -t orels1/v3.cogs.red:alpha-$CIRCLE_BUILD_NUM .
+      - run: docker push orels1/v3.cogs.red:alpha-$CIRCLE_BUILD_NUM
+      - run: node ./scripts/deploy.js $CIRCLE_BUILD_NUM
+
+workflows:
+  version: 2
+  test_and_build:
+    jobs:
+      - checkout_code
+      - test:
+          requires:
+            - checkout_code
+      - eslint:
+          requires:
+            - checkout_code
+      # - deploy-dev:
+      #     requires:
+      #       - build
+      #     filters:
+      #       branches:
+      #           only: develop
+

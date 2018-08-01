@@ -1,0 +1,16 @@
+{
+  "name": "api.v3.cogs.red",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.243.1",
+    "body-parser": "^1.18.3",
+    "lodash": "^4.17.10",
+    "node-fetch": "^2.1.2"
+  },
+  "devDependencies": {
+    "serverless-dynamodb-local": "^0.2.30",
+    "serverless-offline": "^3.23.0"
+  }
+}

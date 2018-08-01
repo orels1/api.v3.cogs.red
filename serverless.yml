@@ -1,0 +1,86 @@
+service: api-v3-cogs-red
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-offline
+
+custom:
+  cogsTable: 'cogs-table-${self:provider.stage}'
+  reposTable: 'repos-table-${self:provider.stage}'
+  dynamodb:
+    start:
+      migrate: true  
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["CogsDynamoDBTable", "Arn" ] }
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*"
+  
+  environment:
+    COGS_TABLE: ${self:custom.cogsTable}
+    REPOS_TABLE: ${self:custom.reposTable}
+    GITHUB_TOKEN: ${env:GITHUB_TOKEN}
+
+functions:
+  - ${file(./src/functions.yml)}
+
+resources:
+  Resources:
+    CogsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: authorName
+            AttributeType: S
+          -
+            AttributeName: path
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: authorName
+            KeyType: HASH
+          -
+            AttributeName: path
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.cogsTable}
+    ReposDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: authorName
+            AttributeType: S
+          -
+            AttributeName: path
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: authorName
+            KeyType: HASH
+          -
+            AttributeName: path
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.reposTable}

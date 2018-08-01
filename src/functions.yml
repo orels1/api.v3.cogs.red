@@ -1,0 +1,79 @@
+parseRepo:
+  handler: src/parser.handler
+  events:
+    - http:
+        path: /parser/{version}/{username}/{repo}
+        method: get
+        request:
+          parameters:
+            queryStrings:
+              branch: false
+            paths:
+              username: true
+              repo: true
+
+# COGS
+addCog:
+  handler: src/cogs.test
+  events:
+    - http:
+        path: /cogs/test
+        method: get   
+getAllCogs:
+  handler: src/cogs.get
+  events:
+    - http:
+        path: /cogs
+        method: get
+getCog:
+  handler: src/cogs.getOne
+  events:
+    - http:
+        path: /cogs/{username}/{repo}/{cog}
+        method: get
+getCogsInRepo:
+  handler: src/cogs.getCogsInRepo
+  events:
+    - http:
+        path: /cogs/{username}/{repo}
+        method: get
+getCogsForUser:
+  handler: src/cogs.getCogsForUser
+  events:
+    - http:
+        path: /cogs/{username}
+        method: get
+
+# REPOS
+getAllRepos:
+  handler: src/repos.get
+  events:
+    - http:
+        path: /repos
+        method: get
+getRepo:
+  handler: src/repos.getOne
+  events:
+    - http:
+        path: /repos/{username}/{repo}
+        method: get
+getReposForUser:
+  handler: src/repos.getReposForUser
+  events:
+    - http:
+        path: /repos/{username}
+        method: get
+
+# V1 Sync
+syncCogs:
+  handler: src/sync.cogs
+  events:
+    - http:
+        path: /sync/cogs
+        method: get
+syncRepos:
+  handler: src/sync.repos
+  events:
+    - http:
+        path: /sync/repos
+        method: get

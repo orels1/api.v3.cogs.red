@@ -9,6 +9,10 @@
     "lodash": "^4.17.10",
     "node-fetch": "^2.1.2"
   },
+  "scripts": {
+    "push": "git push origin master:serverless",
+    "dev": "sls offline start"
+  },
   "devDependencies": {
     "serverless-dynamodb-local": "^0.2.30",
     "serverless-offline": "^3.23.0"

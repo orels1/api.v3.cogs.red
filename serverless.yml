@@ -2,6 +2,7 @@ service: api-v3-cogs-red
 
 plugins:
   - serverless-dynamodb-local
+  - serverless-offline-scheduler
   - serverless-offline
 
 custom:
@@ -27,6 +28,7 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["CogsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["ReposDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - lambda:InvokeFunction

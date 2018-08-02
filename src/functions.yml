@@ -68,12 +68,18 @@ getReposForUser:
 syncCogs:
   handler: src/sync.cogs
   events:
+    - schedule:
+        rate: rate(1 days)
+        enabled: true
     - http:
         path: /sync/cogs
         method: get
 syncRepos:
   handler: src/sync.repos
   events:
+    - schedule:
+        rate: rate(1 days)
+        enabled: true
     - http:
         path: /sync/repos
         method: get

@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "serverless-dynamodb-local": "^0.2.30",
-    "serverless-offline": "^3.23.0"
+    "serverless-offline": "^3.23.0",
+    "serverless-offline-scheduler": "^0.3.4"
   }
 }

@@ -1,7 +1,6 @@
 const AWS = require('aws-sdk');
 const { graphql } = require('./parser');
-const createResponse = require('./createResponse');
-const { queryByPath } = require('./utils');
+const { createResponse, queryByPath } = require('./utils');
 
 const REPOS_TABLE = process.env.REPOS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;

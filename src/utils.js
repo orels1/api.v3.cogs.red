@@ -10,3 +10,8 @@ exports.queryByPath = (table, username, path) => ({
     ':path': path
   }
 });
+
+exports.createResponse = (body, statusCode = 200) => ({
+  statusCode,
+  body: JSON.stringify(body)
+});

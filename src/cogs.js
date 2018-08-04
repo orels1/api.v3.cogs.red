@@ -62,6 +62,12 @@ exports.test = async event => {
 exports.get = async event => {
   const params = {
     TableName: COGS_TABLE
+    ScanFilter: {
+      hidden: {
+        ComparisonOperator: 'NE',
+        AttributeValueList: [true]
+      }
+    }
   };
 
   try {

@@ -19,7 +19,13 @@ if (IS_OFFLINE === 'true') {
 
 exports.get = async event => {
   const params = {
-    TableName: REPOS_TABLE
+    TableName: REPOS_TABLE,
+    ScanFilter: {
+      hidden: {
+        ComparisonOperator: 'NE',
+        AttributeValueList: [true]
+      }
+    }
   };
 
   try {

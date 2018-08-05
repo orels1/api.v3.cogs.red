@@ -1,6 +1,12 @@
 const AWS = require('aws-sdk');
 const { graphql } = require('./parser');
-const { scan, createResponse, queryByPath } = require('./utils');
+const {
+  getHiddenFlag,
+  getHiddenFilter,
+  scan,
+  createResponse,
+  queryByPath
+} = require('./utils');
 
 const COGS_TABLE = process.env.COGS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;
@@ -17,11 +23,16 @@ if (IS_OFFLINE === 'true') {
 }
 
 exports.get = async event => {
-  const params = scan(COGS_TABLE, { hidden: false });
+  const hiddenFilter = getHiddenFilter(event);
+  const params = scan(COGS_TABLE, { ...hiddenFilter });
+  console.log(params);
 
   try {
     const result = await dynamoDb.scan(params).promise();
-    return createResponse({ results: result.Items, count: result.Count });
+    return createResponse({
+      results: result.Items,
+      count: result.Count
+    });
   } catch (e) {
     console.error(e);
     return createResponse({ error: 'Could not get cogs' }, 503);
@@ -29,6 +40,7 @@ exports.get = async event => {
 };
 
 exports.getOne = async event => {
+  const hidden = getHiddenFlag(event);
   const { username, repo, cog } = event.pathParameters;
 
   const params = {
@@ -41,7 +53,7 @@ exports.getOne = async event => {
 
   try {
     const result = await dynamoDb.get(params).promise();
-    if (result.Item && !result.Item.hidden) {
+    if (result.Item && (hidden || !result.Item.hidden)) {
       return createResponse({ ...result.Item });
     } else {
       return createResponse({ error: 'Cog not found' }, 404);
@@ -54,9 +66,10 @@ exports.getOne = async event => {
 
 exports.getCogsInRepo = async event => {
   const { username, repo } = event.pathParameters;
+  const hiddenFilter = getHiddenFilter(event);
 
   const params = queryByPath(COGS_TABLE, username, `${username}/${repo}`, {
-    hidden: false
+    ...hiddenFilter
   });
 
   try {
@@ -77,8 +90,11 @@ exports.getCogsInRepo = async event => {
 
 exports.getCogsForUser = async event => {
   const { username } = event.pathParameters;
+  const hiddenFilter = getHiddenFilter(event);
 
-  const params = queryByPath(COGS_TABLE, username, username, { hidden: false });
+  const params = queryByPath(COGS_TABLE, username, username, {
+    ...hiddenFilter
+  });
 
   try {
     const result = await dynamoDb.query(params).promise();

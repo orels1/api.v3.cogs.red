@@ -1,4 +1,4 @@
-const { merge } = require('lodash');
+const { merge, omitBy } = require('lodash');
 
 /**
  * Takes the filter object and returns a formatted FilterExpressions for merging
@@ -6,11 +6,15 @@ const { merge } = require('lodash');
  * @returns {Object} Containers FilterExpression, ExpressionsAttributeValues and ExpressionAttributeNames
  */
 const genFilterExpression = filter => {
-  if (!filter || !Object.keys(filter).length) return {};
+  if (!filter) return {};
+  console.log(filter);
+  const cleanedFilter = omitBy(filter, (k, v) => typeof v === 'undefined');
+  console.log(cleanedFilter);
+  if (!Object.keys(cleanedFilter).length) return {};
   return merge(
     {},
     {
-      FilterExpression: Object.entries(filter)
+      FilterExpression: Object.entries(cleanedFilter)
         .map(([key, val]) => `#${key} = :${key}`)
         .join(' AND ')
     },
@@ -25,12 +29,22 @@ const genFilterExpression = filter => {
           results.ExpressionAttributeNames[`#${key}`] = key;
         });
         return results;
-      })(Object.entries(filter))
+      })(Object.entries(cleanedFilter))
     }
   );
 };
 
 exports.genFilterExpression = genFilterExpression;
+
+// extract the hidden flag from queryString
+const getHiddenFlag = event =>
+  (event.queryStringParameters ? event.queryStringParameters : {}).hidden ===
+  'true';
+exports.getHiddenFlag = getHiddenFlag;
+
+// create a formatted filter object
+exports.getHiddenFilter = event =>
+  getHiddenFlag(event) ? {} : { hidden: false };
 
 exports.queryByPath = (table, username, path, filter) =>
   merge(

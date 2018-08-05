@@ -1,6 +1,12 @@
 const AWS = require('aws-sdk');
 const { graphql } = require('./parser');
-const { scan, createResponse, queryByPath } = require('./utils');
+const {
+  getHiddenFlag,
+  getHiddenFilter,
+  scan,
+  createResponse,
+  queryByPath
+} = require('./utils');
 
 const REPOS_TABLE = process.env.REPOS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;
@@ -17,7 +23,8 @@ if (IS_OFFLINE === 'true') {
 }
 
 exports.get = async event => {
-  const params = scan(REPOS_TABLE, { hidden: false });
+  const hiddenFilter = getHiddenFilter(event);
+  const params = scan(REPOS_TABLE, { ...hiddenFilter });
 
   try {
     const result = await dynamoDb.scan(params).promise();
@@ -30,6 +37,7 @@ exports.get = async event => {
 
 exports.getOne = async event => {
   const { username, repo } = event.pathParameters;
+  const hidden = getHiddenFlag(event);
 
   const params = {
     TableName: REPOS_TABLE,
@@ -41,7 +49,7 @@ exports.getOne = async event => {
 
   try {
     const result = await dynamoDb.get(params).promise();
-    if (result.Item) {
+    if (result.Item && (hidden || !result.Item.hidden)) {
       return createResponse({ ...result.Item });
     } else {
       return createResponse({ error: 'Repo not found' }, 404);
@@ -54,9 +62,10 @@ exports.getOne = async event => {
 
 exports.getReposForUser = async event => {
   const { username } = event.pathParameters;
+  const hiddenFilter = getHiddenFilter(event);
 
   const params = queryByPath(REPOS_TABLE, username, username, {
-    hidden: false
+    ...hiddenFilter
   });
 
   try {

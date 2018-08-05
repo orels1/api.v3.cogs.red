@@ -16,48 +16,6 @@ if (IS_OFFLINE === 'true') {
   dynamoDb = new AWS.DynamoDB.DocumentClient();
 }
 
-exports.test = async event => {
-  const data = await graphql('orels1', 'ORELS-Cogs');
-  const cog = data.cogs.valid[0];
-
-  const Item = {
-    path: `orels1/ORELS-Cogs/${cog.name}`,
-    name: cog.name,
-    bot_version: [2, 0, 0],
-    python_version: [3, 5, 0],
-    required_cogs: {},
-    type: 'COG',
-    ...cog,
-    author: {
-      ...cog.author,
-      username: 'orels1'
-    },
-    repo: {
-      name: data.repo.name,
-      type: 'unapproved'
-    },
-    readme: '# test',
-    links: {
-      _self: 'test/link'
-    },
-    created: Date.now(),
-    updated: Date.now()
-  };
-
-  const params = {
-    TableName: COGS_TABLE,
-    Item
-  };
-
-  try {
-    await dynamoDb.put(params).promise();
-    return createResponse({ ...Item });
-  } catch (e) {
-    console.error(e);
-    return createResponse({ error: 'Could not save cog ' }, 400);
-  }
-};
-
 exports.get = async event => {
   const params = scan(COGS_TABLE, { hidden: false });
 

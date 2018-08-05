@@ -13,12 +13,6 @@ parseRepo:
               repo: true
 
 # COGS
-addCog:
-  handler: src/cogs.test
-  events:
-    - http:
-        path: /cogs/test
-        method: get   
 getAllCogs:
   handler: src/cogs.get
   events:

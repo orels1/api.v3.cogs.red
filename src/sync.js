@@ -38,6 +38,8 @@ exports.cogs = async () => {
             authorName: cog.author.username,
             type: 'COG',
             readme: null,
+            voted: undefined,
+            votes: undefined,
             created: Date.now(),
             updated: cog.updated_at,
             updated_at: undefined,

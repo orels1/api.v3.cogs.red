@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const { graphql } = require('./parser');
-const { createResponse, queryByPath } = require('./utils');
+const { scan, createResponse, queryByPath } = require('./utils');
 
 const COGS_TABLE = process.env.COGS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;
@@ -59,15 +59,7 @@ exports.test = async event => {
 };
 
 exports.get = async event => {
-  const params = {
-    TableName: COGS_TABLE
-    ScanFilter: {
-      hidden: {
-        ComparisonOperator: 'NE',
-        AttributeValueList: [true]
-      }
-    }
-  };
+  const params = scan(COGS_TABLE, { hidden: false });
 
   try {
     const result = await dynamoDb.scan(params).promise();
@@ -91,7 +83,7 @@ exports.getOne = async event => {
 
   try {
     const result = await dynamoDb.get(params).promise();
-    if (result.Item) {
+    if (result.Item && !result.Item.hidden) {
       return createResponse({ ...result.Item });
     } else {
       return createResponse({ error: 'Cog not found' }, 404);
@@ -105,7 +97,9 @@ exports.getOne = async event => {
 exports.getCogsInRepo = async event => {
   const { username, repo } = event.pathParameters;
 
-  const params = queryByPath(COGS_TABLE, username, `${username}/${repo}`);
+  const params = queryByPath(COGS_TABLE, username, `${username}/${repo}`, {
+    hidden: false
+  });
 
   try {
     const result = await dynamoDb.query(params).promise();
@@ -126,7 +120,7 @@ exports.getCogsInRepo = async event => {
 exports.getCogsForUser = async event => {
   const { username } = event.pathParameters;
 
-  const params = queryByPath(COGS_TABLE, username, username);
+  const params = queryByPath(COGS_TABLE, username, username, { hidden: false });
 
   try {
     const result = await dynamoDb.query(params).promise();

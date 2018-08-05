@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const { graphql } = require('./parser');
-const { createResponse, queryByPath } = require('./utils');
+const { scan, createResponse, queryByPath } = require('./utils');
 
 const REPOS_TABLE = process.env.REPOS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE;
@@ -17,15 +17,7 @@ if (IS_OFFLINE === 'true') {
 }
 
 exports.get = async event => {
-  const params = {
-    TableName: REPOS_TABLE,
-    ScanFilter: {
-      hidden: {
-        ComparisonOperator: 'NE',
-        AttributeValueList: [true]
-      }
-    }
-  };
+  const params = scan(REPOS_TABLE, { hidden: false });
 
   try {
     const result = await dynamoDb.scan(params).promise();
@@ -63,7 +55,9 @@ exports.getOne = async event => {
 exports.getReposForUser = async event => {
   const { username } = event.pathParameters;
 
-  const params = queryByPath(REPOS_TABLE, username, username);
+  const params = queryByPath(REPOS_TABLE, username, username, {
+    hidden: false
+  });
 
   try {
     const result = await dynamoDb.query(params).promise();

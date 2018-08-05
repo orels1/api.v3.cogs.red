@@ -7,9 +7,7 @@ const { merge, omitBy } = require('lodash');
  */
 const genFilterExpression = filter => {
   if (!filter) return {};
-  console.log(filter);
   const cleanedFilter = omitBy(filter, (k, v) => typeof v === 'undefined');
-  console.log(cleanedFilter);
   if (!Object.keys(cleanedFilter).length) return {};
   return merge(
     {},

@@ -25,7 +25,6 @@ if (IS_OFFLINE === 'true') {
 exports.get = async event => {
   const hiddenFilter = getHiddenFilter(event);
   const params = scan(COGS_TABLE, { ...hiddenFilter });
-  console.log(params);
 
   try {
     const result = await dynamoDb.scan(params).promise();

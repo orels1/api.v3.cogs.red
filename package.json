@@ -6,6 +6,7 @@
   "dependencies": {
     "aws-sdk": "^2.243.1",
     "body-parser": "^1.18.3",
+    "fetchql": "^2.2.1",
     "lodash": "^4.17.10",
     "node-fetch": "^2.1.2"
   },
@@ -14,6 +15,8 @@
     "dev": "sls offline start"
   },
   "devDependencies": {
+    "dotenv": "^6.0.0",
+    "serverless-dotenv-plugin": "^1.1.5",
     "serverless-dynamodb-local": "^0.2.30",
     "serverless-offline": "^3.23.0",
     "serverless-offline-scheduler": "^0.3.4"

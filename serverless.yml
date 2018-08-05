@@ -1,6 +1,7 @@
 service: api-v3-cogs-red
 
 plugins:
+  - serverless-dotenv-plugin
   - serverless-dynamodb-local
   - serverless-offline-scheduler
   - serverless-offline

@@ -31,7 +31,12 @@ exports.cogs = async () => {
         try {
           const Item = {
             ...cog,
-            path: `${cog.author.username}/${cog.repo.name}/${cog.name}`,
+            path: `${cog.author.username}/${cog.repo.name}/${cog.name}/master`,
+            repo: {
+              ...cog.repo,
+              branch: 'master',
+              default_branch: true
+            },
             bot_version: [2, 0, 0],
             python_version: [3, 5, 0],
             required_cogs: {},
@@ -40,8 +45,9 @@ exports.cogs = async () => {
             readme: null,
             voted: undefined,
             votes: undefined,
+            parsed: undefined,
             created: Date.now(),
-            updated: cog.updated_at,
+            updated: null,
             updated_at: undefined,
             links: {
               ...cog.links,
@@ -91,10 +97,14 @@ exports.repos = async () => {
         try {
           const Item = {
             ...repo,
-            path: `${repo.author.username}/${repo.name}`,
+            path: `${repo.author.username}/${repo.name}/master`,
+            branch: 'master',
+            default_branch: true,
             readme: null,
             cogs: undefined,
+            parsed: undefined,
             created: Date.now(),
+            updated: null,
             authorName: repo.author.username,
             links: {
               ...repo.links,

@@ -36,21 +36,20 @@ exports.get = async event => {
 };
 
 exports.getOne = async event => {
-  const { username, repo } = event.pathParameters;
-  const hidden = getHiddenFlag(event);
+  const { username, repo, branch } = event.pathParameters;
+  const hiddenFilter = getHiddenFilter(event);
 
-  const params = {
-    TableName: REPOS_TABLE,
-    Key: {
-      authorName: username,
-      path: `${username}/${repo}`
-    }
-  };
+  const params = queryByPath(REPOS_TABLE, username, `${username}/${repo}`, {
+    ...hiddenFilter,
+    ...(typeof branch === 'undefined'
+      ? { default_branch: true }
+      : { branch: branch })
+  });
 
   try {
-    const result = await dynamoDb.get(params).promise();
-    if (result.Item && (hidden || !result.Item.hidden)) {
-      return createResponse({ ...result.Item });
+    const result = await dynamoDb.query(params).promise();
+    if (result.Count) {
+      return createResponse({ ...result.Items[0] });
     } else {
       return createResponse({ error: 'Repo not found' }, 404);
     }

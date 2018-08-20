@@ -11,7 +11,7 @@ custom:
   reposTable: 'repos-table-${self:provider.stage}'
   dynamodb:
     start:
-      migrate: true  
+      migrate: true
 
 provider:
   name: aws
@@ -28,17 +28,17 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource:
-        - { "Fn::GetAtt": ["CogsDynamoDBTable", "Arn" ] }
-        - { "Fn::GetAtt": ["ReposDynamoDBTable", "Arn" ] }
+        - { 'Fn::GetAtt': ['CogsDynamoDBTable', 'Arn'] }
+        - { 'Fn::GetAtt': ['ReposDynamoDBTable', 'Arn'] }
     - Effect: Allow
       Action:
         - lambda:InvokeFunction
-      Resource: "*"
-  
+      Resource: '*'
+
   environment:
     COGS_TABLE: ${self:custom.cogsTable}
     REPOS_TABLE: ${self:custom.reposTable}
-    GITHUB_TOKEN: ${env:GITHUB_TOKEN}
+    GITHUB_TOKEN: ${env:GH_TOKEN}
 
 functions:
   - ${file(./src/functions.yml)}
@@ -49,18 +49,14 @@ resources:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
-          -
-            AttributeName: authorName
+          - AttributeName: authorName
             AttributeType: S
-          -
-            AttributeName: path
+          - AttributeName: path
             AttributeType: S
         KeySchema:
-          -
-            AttributeName: authorName
+          - AttributeName: authorName
             KeyType: HASH
-          -
-            AttributeName: path
+          - AttributeName: path
             KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
@@ -70,18 +66,14 @@ resources:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
-          -
-            AttributeName: authorName
+          - AttributeName: authorName
             AttributeType: S
-          -
-            AttributeName: path
+          - AttributeName: path
             AttributeType: S
         KeySchema:
-          -
-            AttributeName: authorName
+          - AttributeName: authorName
             KeyType: HASH
-          -
-            AttributeName: path
+          - AttributeName: path
             KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1

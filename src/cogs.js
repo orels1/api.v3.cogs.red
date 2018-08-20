@@ -39,21 +39,25 @@ exports.get = async event => {
 };
 
 exports.getOne = async event => {
-  const hidden = getHiddenFlag(event);
-  const { username, repo, cog } = event.pathParameters;
+  const hiddenFilter = getHiddenFilter(event);
+  const { username, repo, branch = '___', cog } = event.pathParameters;
 
-  const params = {
-    TableName: COGS_TABLE,
-    Key: {
-      authorName: username,
-      path: `${username}/${repo}/${cog}`
+  const params = queryByPath(
+    COGS_TABLE,
+    username,
+    `${username}/${repo}/${cog}`,
+    {
+      ...hiddenFilter,
+      ...(branch === '___'
+        ? { 'repo.default_branch': true }
+        : { 'repo.branch': branch })
     }
-  };
+  );
 
   try {
-    const result = await dynamoDb.get(params).promise();
-    if (result.Item && (hidden || !result.Item.hidden)) {
-      return createResponse({ ...result.Item });
+    const result = await dynamoDb.query(params).promise();
+    if (result.Count) {
+      return createResponse({ ...result.Items[0] });
     } else {
       return createResponse({ error: 'Cog not found' }, 404);
     }
@@ -64,11 +68,14 @@ exports.getOne = async event => {
 };
 
 exports.getCogsInRepo = async event => {
-  const { username, repo } = event.pathParameters;
+  const { username, repo, branch } = event.pathParameters;
   const hiddenFilter = getHiddenFilter(event);
 
   const params = queryByPath(COGS_TABLE, username, `${username}/${repo}`, {
-    ...hiddenFilter
+    ...hiddenFilter,
+    ...(typeof branch === 'undefined'
+      ? { 'repo.default_branch': true }
+      : { 'repo.branch': branch })
   });
 
   try {

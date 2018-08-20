@@ -23,13 +23,16 @@ getCog:
   handler: src/cogs.getOne
   events:
     - http:
-        path: /cogs/{username}/{repo}/{cog}
+        path: /cogs/{username}/{repo}/{branch}/{cog}
         method: get
 getCogsInRepo:
   handler: src/cogs.getCogsInRepo
   events:
     - http:
         path: /cogs/{username}/{repo}
+        method: get
+    - http:
+        path: /cogs/{username}/{repo}/{branch}
         method: get
 getCogsForUser:
   handler: src/cogs.getCogsForUser
@@ -50,6 +53,9 @@ getRepo:
   events:
     - http:
         path: /repos/{username}/{repo}
+        method: get
+    - http:
+        path: /repos/{username}/{repo}/{branch}
         method: get
 getReposForUser:
   handler: src/repos.getReposForUser

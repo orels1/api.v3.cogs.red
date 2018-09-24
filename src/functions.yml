@@ -82,4 +82,8 @@ syncRepos:
         enabled: true
     - http:
         path: /sync/repos
-        method: get
+        method: get.authorize
+  cors: true
+  environment:
+    AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
+    AUTH0_CLIENT_ID: ${env:AUTH0_CLIENT_ID}

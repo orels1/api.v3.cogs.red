@@ -34,6 +34,11 @@ provider:
       Action:
         - lambda:InvokeFunction
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - 'secretsmanager:*'
+      Resource:
+        - ${env:AUTH0_SECRET_ARN}
 
   environment:
     COGS_TABLE: ${self:custom.cogsTable}
@@ -45,6 +50,32 @@ functions:
 
 resources:
   Resources:
+    SMPermissions:
+      Type: 'AWS::Lambda::Permission'
+      Properties:
+        Principal: secretsmanager.amazonaws.com
+        FunctionName: { 'Fn::GetAtt': ['SmLambdaFunction', 'Arn'] }
+        Action: 'lambda:InvokeFunction'
+    GatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: EXPIRED_TOKEN
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
+    AuthFailureGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
     CogsDynamoDBTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:

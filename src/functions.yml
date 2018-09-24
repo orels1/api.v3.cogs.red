@@ -4,13 +4,9 @@ parseRepo:
     - http:
         path: /parser/{version}/{username}/{repo}
         method: get
-        request:
-          parameters:
-            queryStrings:
-              branch: false
-            paths:
-              username: true
-              repo: true
+    - http:
+        path: /parser/{version}/{username}/{repo}/{branch}
+        method: get
 
 # COGS
 getAllCogs:
@@ -82,8 +78,48 @@ syncRepos:
         enabled: true
     - http:
         path: /sync/repos
-        method: get.authorize
+
+# Auth
+auth:
+  handler: src/auth.authorize
   cors: true
   environment:
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
     AUTH0_CLIENT_ID: ${env:AUTH0_CLIENT_ID}
+# Github
+getGithubHooks:
+  handler: src/github.getGithubHooks
+  events:
+    - http:
+        path: /github/hooks/{username}/{repo}
+        method: get
+createGithubHook:
+  handler: src/github.createGithubHook
+  events:
+    - http:
+        path: /github/hooks
+        method: post
+        authorizer: auth
+        cors: true
+getGithubReposForUser:
+  handler: src/github.getRepos
+  events:
+    - http:
+        path: /github/repos/{username}
+        method: get
+        authorizer: auth
+        cors: true
+getGithubBranchesForRepo:
+  handler: src/github.getBranches
+  events:
+    - http:
+        path: /github/branches/{username}/{repo}
+        method: get
+        authorizer: auth
+        cors: true
+hookTest:
+  handler: src/github.hookTest
+  events:
+    - http:
+        path: /hookTest/{username}/{repo}/{branch}
+        method: post

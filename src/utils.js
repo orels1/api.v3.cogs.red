@@ -1,5 +1,7 @@
-const { merge, omitBy, pickBy, concat } = require('lodash');
-
+const { merge, omitBy, pickBy, concat, get } = require('lodash');
+const fetch = require('node-fetch');
+const { getAuth0ManagementToken } = require('./auth');
+const Octokit = require('@octokit/rest');
 /**
  * Takes the filter object and returns a formatted FilterExpressions for merging
  * @param {Object} filter Object with attributes to filter by. Filtering is done by equality
@@ -116,3 +118,46 @@ exports.createResponse = (body, statusCode = 200) => ({
   statusCode,
   body: JSON.stringify(body)
 });
+
+exports.userCheck = (user, event) => {
+  const {
+    pathParameters: { username }
+  } = event;
+  return username === user;
+};
+
+exports.getIdToken = async event => {
+  const userId =
+    get(event, 'requestContext.authorizer.claims.sub') ||
+    get(event, 'requestContext.authorizer.principalId');
+  try {
+    const token = await getAuth0ManagementToken();
+    const resp = await fetch(
+      `https://cogs.auth0.com/api/v2/users?q=user_id:"${userId}"`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    const json = await resp.json();
+    if (!json.length) return null;
+    const user = json[0];
+    return {
+      ghToken: user.identities.filter(i => i.connection === 'github')[0]
+        .access_token,
+      user: user.name
+    };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+exports.createOctokit = token =>
+  Octokit({
+    headers: {
+      accept: 'application/vnd.github.v3+json',
+      'user-agent': 'octokit/rest.js v1.2.3',
+      authorization: `bearer ${token}`
+    }
+  });

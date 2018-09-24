@@ -64,20 +64,21 @@ getReposForUser:
 syncCogs:
   handler: src/sync.cogs
   events:
-    - schedule:
-        rate: rate(1 days)
-        enabled: true
+    # - schedule:
+    #     rate: rate(1 days)
+    #     enabled: true
     - http:
         path: /sync/cogs
         method: get
 syncRepos:
   handler: src/sync.repos
   events:
-    - schedule:
-        rate: rate(1 days)
-        enabled: true
+    # - schedule:
+    #     rate: rate(1 days)
+    #     enabled: true
     - http:
         path: /sync/repos
+        method: get
 
 # Auth
 auth:
@@ -86,6 +87,12 @@ auth:
   environment:
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
     AUTH0_CLIENT_ID: ${env:AUTH0_CLIENT_ID}
+sm:
+  handler: src/sm.handler
+  environment:
+    AUTH0_API_CLIENT_ID: ${env:AUTH0_API_CLIENT_ID}
+    AUTH0_API_CLIENT_SECRET: ${env:AUTH0_API_CLIENT_SECRET}
+
 # Github
 getGithubHooks:
   handler: src/github.getGithubHooks

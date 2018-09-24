@@ -74,3 +74,4 @@ typings/
 
 # stuff
 .DS_Store
+.dynamodb

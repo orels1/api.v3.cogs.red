@@ -1,14 +1,29 @@
 const fetch = require('node-fetch');
+const AWS = require('aws-sdk');
 const { filter, map, compact } = require('lodash');
 const jsonlint = require('jsonlint');
-const { createResponse } = require('./utils');
+const { createResponse, getIdToken, queryByPath } = require('./utils');
 
+const COGS_TABLE = process.env.COGS_TABLE;
+const REPOS_TABLE = process.env.REPOS_TABLE;
+const IS_OFFLINE = process.env.IS_OFFLINE;
 const TOKEN = process.env.GITHUB_TOKEN;
 const API_ROOT = 'https://api.github.com';
-const headers = {
-  Authorization: `bearer ${TOKEN}`,
+const headers = token => ({
+  Authorization: `bearer ${token}`,
   'Content-Type': 'application/json'
-};
+});
+
+let dynamoDb;
+
+if (IS_OFFLINE === 'true') {
+  dynamoDb = new AWS.DynamoDB.DocumentClient({
+    region: 'localhost',
+    endpoint: 'http://localhost:8000'
+  });
+} else {
+  dynamoDb = new AWS.DynamoDB.DocumentClient();
+}
 
 const v2Mapper = {
   cog: data => ({
@@ -39,10 +54,13 @@ const v3Mapper = {
   })
 };
 
-const graphql = async (username, repo, branch = 'master') => {
+const graphql = async (username, repo, branch = 'master', token = TOKEN) => {
   const query = `
     query {
       repoFiles: repository(name: "${repo}", owner: "${username}") {
+        defaultBranchRef{
+          name
+        }
         object(expression: "${branch}:") {
           ... on Tree {
             entries {
@@ -69,12 +87,12 @@ const graphql = async (username, repo, branch = 'master') => {
             }
           }
         }
-      }
+      },
     }
   `;
   try {
     const resp = await fetch(`${API_ROOT}/graphql`, {
-      headers,
+      headers: headers(token),
       method: 'POST',
       body: JSON.stringify({ query })
     });
@@ -114,7 +132,8 @@ const parser = (json, version, username, repo) => {
       valid: [],
       broken: [],
       missing: []
-    }
+    },
+    defaultBranch: json.data.repoFiles.defaultBranchRef.name
   };
 
   // select mapper
@@ -133,7 +152,10 @@ const parser = (json, version, username, repo) => {
         ...repoMappedData.author,
         username
       },
-      name: repo
+      name: repo,
+      readme: filter(files, f =>
+        ['README.MD', 'readme.md', 'readme.MD'].includes(f.name)
+      )[0].object.text
     };
   } catch (e) {
     console.log(e);
@@ -215,3 +237,160 @@ exports.handler = async event => {
     result
   });
 };
+
+const saveRepo = async ({ username, repo, branch, result }) => {
+  // check if repo exists
+  const repoGetParams = queryByPath(
+    REPOS_TABLE,
+    username,
+    `${username}/${repo}`,
+    {
+      hidden: true,
+      branch
+    }
+  );
+
+  let created = Date.now();
+  let updated = null;
+  let hidden = false;
+
+  // if exists - use old creation date and new update date
+  const repoInDb = await dynamoDb.query(repoGetParams).promise();
+  if (repoInDb.Count) {
+    // using already created timestamp for consistency
+    updated = created;
+    created = repoInDb.Items[0].created;
+    hidden = repoInDb.hidden;
+  }
+
+  // save repo
+  const repoParams = {
+    TableName: REPOS_TABLE,
+    Item: {
+      ...result.repo,
+      path: `${username}/${repo}/${branch}`,
+      short: result.repo.short.length ? result.repo.short : null,
+      authorName: username,
+      branch,
+      default_branch: result.defaultBranch === branch,
+      created,
+      updated,
+      hidden,
+      links: {
+        self: `/${username}/${repo}/${branch}`
+      }
+    }
+  };
+
+  try {
+    await dynamoDb.put(repoParams).promise();
+    return {
+      result: {
+        ...repoParams.Item
+      }
+    };
+  } catch (e) {
+    console.error(e);
+    return {
+      error: `Could not save repo ${repo}`,
+      error_details: e
+    };
+  }
+};
+
+const saveCog = async (cog, username, repo, branch, result) => {
+  const { name } = cog;
+  // check if cog exists
+  const repoGetParams = queryByPath(
+    COGS_TABLE,
+    username,
+    `${username}/${repo}/${name}`,
+    {
+      hidden: true,
+      branch
+    }
+  );
+
+  let created = Date.now();
+  let updated = null;
+  let hidden = false;
+  let type = 'unapproved';
+
+  // if exists - use old creation date and new update date
+  const cogInDb = await dynamoDb.query(repoGetParams).promise();
+  if (cogInDb.Count) {
+    // using already created timestamp for consistency
+    updated = created;
+    created = cogInDb.Items[0].created;
+    hidden = cogInDb.hidden;
+    // type is always changed separately, so we trust DB on this one
+    type = cogInDb.type;
+  }
+
+  // save repo
+  const cogParams = {
+    TableName: COGS_TABLE,
+    Item: {
+      ...cog,
+      path: `${username}/${repo}/${name}/${branch}`,
+      authorName: username,
+      short: cog.short.length ? cog.short : null,
+      repo: {
+        name: repo,
+        type,
+        branch,
+        default_branch: result.defaultBranch === branch
+      },
+      created,
+      updated,
+      hidden,
+      bot_version: [2, 0, 0],
+      python_version: [3, 5, 0],
+      required_cogs: {},
+      links: {
+        self: `/${username}/${repo}/${branch}/${name}`
+      }
+    }
+  };
+
+  return new Promise(async resolve => {
+    try {
+      await dynamoDb.put(cogParams).promise();
+      resolve(cogParams.Item);
+    } catch (e) {
+      resolve({
+        error: `Could not save cog ${name}`,
+        error_details: e.message
+      });
+    }
+  });
+};
+
+const save = async (auth0User, { username, repo, branch, version }) => {
+  try {
+    const { ghToken } = await getIdToken(auth0User);
+    const json = await graphql(username, repo, branch, ghToken);
+    const { result } = parser(json, version, username, repo);
+
+    const savedRepo = await saveRepo({
+      username,
+      repo,
+      branch,
+      result
+    });
+
+    const savedCogs = await Promise.all(
+      result.cogs.valid.map(c => saveCog(c, username, repo, branch, result))
+    );
+
+    return createResponse({
+      repo: savedRepo,
+      cogs: savedCogs
+    });
+  } catch (e) {
+    console.error(e);
+    return createResponse({});
+  }
+};
+
+exports.save = save;

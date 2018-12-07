@@ -119,34 +119,48 @@ exports.createResponse = (body, statusCode = 200) => ({
   body: JSON.stringify(body)
 });
 
-exports.userCheck = (user, event) => {
-  const {
-    pathParameters: { username }
-  } = event;
+exports.userCheck = (user, event, useBody) => {
+  if (!useBody) {
+    const {
+      pathParameters: { username }
+    } = event;
+    return username === user;
+  }
+
+  const { username } = JSON.parse(event.body);
   return username === user;
 };
 
-exports.getIdToken = async event => {
+const getAuth0User = async event => {
   const userId =
-    get(event, 'requestContext.authorizer.claims.sub') ||
-    get(event, 'requestContext.authorizer.principalId');
-  try {
-    const token = await getAuth0ManagementToken();
-    const resp = await fetch(
-      `https://cogs.auth0.com/api/v2/users?q=user_id:"${userId}"`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+    typeof event === 'string'
+      ? event
+      : get(event, 'requestContext.authorizer.claims.sub') ||
+        get(event, 'requestContext.authorizer.principalId');
+  const token = await getAuth0ManagementToken();
+  const resp = await fetch(
+    `https://cogs.auth0.com/api/v2/users?q=user_id:"${userId}"`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
-    );
-    const json = await resp.json();
-    if (!json.length) return null;
-    const user = json[0];
+    }
+  );
+  const json = await resp.json();
+  if (!json.length) return null;
+  return json[0];
+};
+
+exports.getAuth0User = getAuth0User;
+
+exports.getIdToken = async event => {
+  try {
+    const user = await getAuth0User(event);
     return {
       ghToken: user.identities.filter(i => i.connection === 'github')[0]
         .access_token,
-      user: user.name
+      user: user.name,
+      auth0User: user.user_id
     };
   } catch (e) {
     console.log(e);

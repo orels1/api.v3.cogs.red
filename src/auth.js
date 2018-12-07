@@ -33,7 +33,6 @@ const generatePolicy = (principalId, effect, resource) => {
 };
 
 module.exports.authorize = (event, context, callback) => {
-  console.log('event', event);
   if (!event.authorizationToken) {
     return callback('Unauthorized');
   }
@@ -61,8 +60,7 @@ module.exports.authorize = (event, context, callback) => {
           console.log(`Token invalid. ${verifyError}`);
           return callback('Unauthorized');
         }
-        // is custom authorizer function
-        console.log('valid from customAuthorizer', decoded);
+
         return callback(
           null,
           generatePolicy(decoded.sub, 'Allow', event.methodArn)

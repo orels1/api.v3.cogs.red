@@ -5,7 +5,9 @@ const {
   getHiddenFilter,
   scan,
   createResponse,
-  queryByPath
+  queryByPath,
+  getAuth0User,
+  userCheck
 } = require('./utils');
 
 const REPOS_TABLE = process.env.REPOS_TABLE;
@@ -81,4 +83,51 @@ exports.getReposForUser = async event => {
     console.error(e);
     return createResponse({ error: 'Could not get repos for user' }, 503);
   }
+};
+
+const remove = async (repoPath, authorName) => {
+  try {
+    await dynamoDb
+      .delete({
+        Key: {
+          path: repoPath,
+          authorName
+        },
+        TableName: REPOS_TABLE
+      })
+      .promise();
+    return;
+  } catch (e) {
+    console.error(e);
+    return {
+      error: `Could not delete repo ${repoPath}`,
+      error_details: e
+    };
+  }
+};
+
+exports.remove = remove;
+
+exports.removeRepoByPath = async event => {
+  const user = await getAuth0User(event);
+  if (!user) {
+    return createResponse({
+      error: 'did not find registered user'
+    });
+  }
+  if (!userCheck(user.name, event))
+    return createResponse(
+      {
+        error:
+          'You are trying to perform an operation on behalf of different user!'
+      },
+      401
+    );
+  const { username, repo, branch } = event.pathParameters;
+  const repoPath = `${username}/${repo}/${branch}`;
+  const result = await remove(repoPath, user.name);
+  if (result && result.error) {
+    return createResponse(result, 503);
+  }
+  return createResponse(result);
 };

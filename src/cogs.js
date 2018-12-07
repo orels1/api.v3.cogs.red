@@ -5,7 +5,9 @@ const {
   getHiddenFilter,
   scan,
   createResponse,
-  queryByPath
+  queryByPath,
+  getAuth0User,
+  userCheck
 } = require('./utils');
 
 const COGS_TABLE = process.env.COGS_TABLE;
@@ -115,5 +117,98 @@ exports.getCogsForUser = async event => {
   } catch (e) {
     console.error(e);
     return createResponse({ error: 'Could not get cogs for repo' }, 503);
+  }
+};
+
+const remove = async (cogPath, authorName) => {
+  try {
+    console.log('removing', cogPath);
+    await dynamoDb
+      .delete({
+        Key: {
+          path: cogPath,
+          authorName
+        },
+        TableName: COGS_TABLE
+      })
+      .promise();
+    return;
+  } catch (e) {
+    console.error(e);
+    return {
+      error: `Could not delete cog ${cogPath}`,
+      error_details: e
+    };
+  }
+};
+
+exports.remove = remove;
+
+exports.removeCogByPath = async event => {
+  const user = await getAuth0User(event);
+  if (!user) {
+    return createResponse({
+      error: 'did not find registered user'
+    });
+  }
+  if (!userCheck(user.name, event))
+    return createResponse(
+      {
+        error:
+          'You are trying to perform an operation on behalf of different user!'
+      },
+      401
+    );
+  const { username, repo, cog, branch } = event.pathParameters;
+  const cogPath = `${username}/${repo}/${c}/${branch}`;
+  const result = await remove(cogPath, user.name);
+  if (!result.error) {
+    return createResponse({});
+  } else {
+    return createResponse(result, 503);
+  }
+};
+
+exports.removeCogsByRepo = async event => {
+  const user = await getAuth0User(event);
+  if (!user) {
+    return createResponse({
+      error: 'did not find registered user'
+    });
+  }
+  if (!userCheck(user.name, event))
+    return createResponse(
+      {
+        error:
+          'You are trying to perform an operation on behalf of different user!'
+      },
+      401
+    );
+  const { username, repo, branch } = event.pathParameters;
+  const params = queryByPath(COGS_TABLE, username, `${username}/${repo}/`, {
+    'repo.branch': branch
+  });
+
+  try {
+    const cogs = (await dynamoDb.query(params).promise()).Items;
+    const results = await Promise.all(
+      cogs.map(c =>
+        remove(`${username}/${repo}/${c.name}/${branch}`, user.name)
+      )
+    );
+    const failed = results.filter(i => i && i.error);
+    console.log(results);
+    if (failed.length) {
+      return createResponse(
+        {
+          error: failed.map(i => i.error).join('\n'),
+          error_details: failed.map(i => i.error_details).join('\n\n')
+        },
+        503
+      );
+    }
+    return createResponse({});
+  } catch (e) {
+    console.error(e);
   }
 };

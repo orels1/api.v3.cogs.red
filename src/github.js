@@ -1,14 +1,16 @@
 const crypto = require('crypto');
+const { concat, filter, reduce } = require('lodash');
 const {
   createResponse,
   userCheck,
   getIdToken,
   createOctokit
 } = require('./utils');
-const { concat, filter } = require('lodash');
+const { remove: removeCog } = require('./cogs');
+const { save } = require('./parser');
 
 const APP_GH_TOKEN = process.env.GITHUB_TOKEN;
-const HOOK_SECRET = 'red-portal-v3';
+const HOOK_SECRET = process.env.HOOK_SECRET;
 
 exports.getRepos = async event => {
   const idData = await getIdToken(event);
@@ -85,8 +87,8 @@ exports.createGithubHook = async event => {
     return createResponse({
       error: 'did not find registered user'
     });
-  const { ghToken, user } = idData;
-  if (!userCheck(user, event))
+  const { ghToken, user, auth0User } = idData;
+  if (!userCheck(user, event, true))
     return createResponse(
       {
         error:
@@ -101,6 +103,7 @@ exports.createGithubHook = async event => {
       },
       401
     );
+  // create github webhook
   const body = JSON.parse(event.body);
   const { username, repo, branch } = body;
   const { data } = await createOctokit(ghToken).repos.createHook({
@@ -108,56 +111,102 @@ exports.createGithubHook = async event => {
     owner: username,
     repo,
     config: {
-      url: `http://d1ae6a26.ngrok.io/hookTest/${username}/${repo}/${branch}`,
+      url: `http://cogs.eu.eu.ngrok.io/github/hooks/${username}/${repo}/${branch}`,
       content_type: 'json',
       secret: HOOK_SECRET
     },
     events: ['push']
   });
+  // parse and save the repo
+  await save(auth0User, { username, repo, branch });
   return createResponse({
     results: data
   });
 };
 
-exports.hookTest = async event => {
+exports.webhook = async event => {
   const { body, headers } = event;
   const { username, repo, branch } = event.pathParameters;
   const hmac = crypto.createHmac('sha1', HOOK_SECRET);
   hmac.update(body);
   const ourHash = hmac.digest('hex');
-  console.log(
-    'hash validated',
-    `sha1=${ourHash}` === headers['X-Hub-Signature']
-  );
+  if (`sha1=${ourHash}` !== headers['X-Hub-Signature']) {
+    return createResponse(
+      {
+        error: 'Hash mismatch'
+      },
+      401
+    );
+  }
   const parsedBody = JSON.parse(body);
+  const user = `github|${parsedBody.sender.id}`;
+
+  // initial webhook creation
+  if (headers['X-GitHub-Event'] === 'ping') {
+    // save the repo first
+    await save(user, {
+      branch: branch,
+      repo: repo,
+      username: username,
+      version: 'v2'
+    });
+    return createResponse({});
+  }
+
   const parsed = {
     branch: parsedBody.ref.match(/[^/]+/g)[2],
     repo: parsedBody.repository.name,
     username: parsedBody.repository.owner.login,
     author: parsedBody.commits[0].author.username,
-    modified: parsedBody.commits[0].modified,
-    added: parsedBody.commits[0].added,
-    removed: parsedBody.commits[0].removed
+    modified: reduce(
+      parsedBody.commits,
+      (result, val) => result.concat(val.modified),
+      []
+    ),
+    added: reduce(
+      parsedBody.commits,
+      (result, val) => result.concat(val.added),
+      []
+    ),
+    removed: reduce(
+      parsedBody.commits,
+      (result, val) => result.concat(val.removed),
+      []
+    )
   };
 
   // check if it is the correct repo/branch
   if (
-    branch === parsed.branch &&
-    repo === parsed.repo &&
-    username === parsed.username
+    branch !== parsed.branch ||
+    repo !== parsed.repo ||
+    username !== parsed.username
   ) {
-    console.log('legit push!');
-  } else {
-    console.log('unknown push');
+    return createResponse({});
   }
 
   // check if any jsons were actually changed
   const changes = concat([], parsed.modified, parsed.added, parsed.removed);
   const changedJsons = filter(changes, i => i.includes('info.json'));
   if (changedJsons.length) {
-    console.log('info.jsons changed, re-parsing!');
-  }
+    // remove the cogs we don't need anymore
+    const removedCogs = filter(parsed.removed, i =>
+      i.includes('info.json')
+    ).map(path => path.substr(0, path.indexOf('/')));
+    await Promise.all(
+      removedCogs.map(c =>
+        removeCog(
+          `${parsed.username}/${parsed.repo}/${c}/${parsed.branch}`,
+          parsed.author
+        )
+      )
+    );
 
-  console.log(parsed);
+    return await save(user, {
+      branch: parsed.branch,
+      repo: parsed.repo,
+      username: parsed.username,
+      version: 'v2'
+    });
+  }
   return createResponse({});
 };

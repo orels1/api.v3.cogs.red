@@ -27,7 +27,9 @@
     "start": "node src/",
     "mocha": "mocha test/ --recursive --exit",
     "dev": "nodemon --inspect=0.0.0.0:9229 src/",
-    "debug": "node --inspect=0.0.0.0:9229 src/"
+    "debug": "node --inspect=0.0.0.0:9229 src/",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "nodemonConfig": {
     "watch": "src/"
@@ -51,7 +53,8 @@
     "node-fetch": "^2.0.0",
     "passport-github": "^1.1.0",
     "serve-favicon": "^2.4.5",
-    "winston": "^2.4.0"
+    "winston": "^2.4.0",
+    "snyk": "^1.116.2"
   },
   "devDependencies": {
     "eslint": "^4.17.0",
@@ -59,5 +62,6 @@
     "nodemon": "^1.14.12",
     "request": "^2.83.0",
     "request-promise": "^4.2.2"
-  }
+  },
+  "snyk": true
 }

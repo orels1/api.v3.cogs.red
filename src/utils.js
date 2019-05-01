@@ -1,4 +1,4 @@
-const { merge, omitBy, pickBy, concat, get } = require('lodash');
+const { merge, omitBy, pickBy, concat, get, omit } = require('lodash');
 const fetch = require('node-fetch');
 const { getAuth0ManagementToken } = require('./auth');
 const Octokit = require('@octokit/rest');
@@ -30,7 +30,10 @@ const genFilterExpression = filter => {
     {},
     {
       FilterExpression: concat(
-        Object.entries(cleanedFilter).map(([key, val]) => `#${key} = :${key}`),
+        Object.entries(cleanedFilter).map(
+          ([key, val]) =>
+            `#${key.replace(/\[|\]/gi, '_')} = :${key.replace(/\[|\]/gi, '_')}`
+        ),
         Object.entries(compositeKeys).map(
           ([key, val]) =>
             `${key
@@ -48,8 +51,12 @@ const genFilterExpression = filter => {
           ExpressionAttributeNames: {}
         };
         entries.forEach(([key, val]) => {
-          results.ExpressionAttributeValues[`:${key}`] = val;
-          results.ExpressionAttributeNames[`#${key}`] = key;
+          results.ExpressionAttributeValues[
+            `:${key.replace(/\[|\]/gi, '_')}`
+          ] = val;
+          results.ExpressionAttributeNames[
+            `#${key.replace(/\[|\]/gi, '_')}`
+          ] = key;
         });
         return results;
       })(Object.entries(cleanedFilter))
@@ -86,6 +93,28 @@ exports.getHiddenFlag = getHiddenFlag;
 // create a formatted filter object
 exports.getHiddenFilter = event =>
   getHiddenFlag(event) ? {} : { hidden: false };
+
+const getUnapprovedFlag = event =>
+  (event.queryStringParameters ? event.queryStringParameters : {})
+    .showUnapproved === 'true';
+exports.getUnapprovedFlag = getUnapprovedFlag;
+
+exports.getUnapprovedFilter = (event, cog) =>
+  getUnapprovedFlag(event) ? {} : { [cog ? 'repo.type' : 'type']: 'approved' };
+
+const getVersionFlag = event =>
+  get(event, 'queryStringParameters.version', null);
+
+exports.getVersionFlag = getVersionFlag;
+
+exports.getVersionFilter = (event, cog) => ({
+  [cog ? 'botVersion[0]' : 'version']: getVersionFlag(event)
+});
+
+exports.cogVersionFilter = (items, version) => {
+  const parsedVersion = parseInt(version, 10);
+  return items.filter(c => c.botVersion[0] === parsedVersion);
+};
 
 exports.queryByPath = (table, username, path, filter) =>
   merge(
@@ -129,6 +158,17 @@ exports.userCheck = (user, event, useBody) => {
 
   const { username } = JSON.parse(event.body);
   return username === user;
+};
+
+exports.staffCheck = user => {
+  const metadata = get(user, 'app_metadata', {});
+  const roles = get(metadata, 'roles', []);
+  return !!metadata.admin || roles.includes('staff') || roles.includes('qa');
+};
+
+exports.adminCheck = user => {
+  const metadata = get(user, 'app_metadata', {});
+  return !!metadata.admin;
 };
 
 const getAuth0User = async event => {
@@ -175,3 +215,16 @@ exports.createOctokit = token =>
       authorization: `bearer ${token}`
     }
   });
+
+exports.filterIp = input => {
+  if (Array.isArray(input)) {
+    return input.map(i => ({
+      ...i,
+      reports: i.reports.map(r => omit(r, 'ip'))
+    }));
+  }
+  return {
+    ...input,
+    reports: input.reports.map(r => omit(r, 'ip'))
+  };
+};

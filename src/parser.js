@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const AWS = require('aws-sdk');
-const { filter, map, compact } = require('lodash');
+const { filter, map, compact, get } = require('lodash');
 const jsonlint = require('jsonlint');
 const { createResponse, getIdToken, queryByPath } = require('./utils');
 
@@ -106,24 +106,25 @@ const graphql = async (username, repo, branch = 'master', token = TOKEN) => {
 
 exports.graphql = graphql;
 
-const createError = (message, path, details) => ({
+const createError = (message, path, details, level) => ({
   message,
   path,
-  details
+  details,
+  level
 });
 
-const parser = (json, version, username, repo) => {
+const parser = (json, username, repo) => {
   const errors = [];
 
   // check if repo is emtpy
   if (!json.data.repoFiles.object.entries.length) {
-    errors.push(createError('Repository is empty'));
+    errors.push(createError('Repository is empty', '', '', 'error'));
   }
 
   // check if repo info.json is missing
   const files = json.data.repoFiles.object.entries;
   if (!filter(files, { name: 'info.json' }).length) {
-    errors.push(createError('File is missing', '/info.json'));
+    errors.push(createError('File is missing', '/info.json', '', 'error'));
   }
 
   // actual data parsing
@@ -136,15 +137,19 @@ const parser = (json, version, username, repo) => {
     defaultBranch: json.data.repoFiles.defaultBranchRef.name
   };
 
-  // select mapper
   let mapper = v2Mapper;
-  if (version === 'v3') mapper = v3Mapper;
+  let version = '2';
 
   // check if repo info.json is valid
   try {
     const repoData = jsonlint.parse(
       filter(files, { name: 'info.json' })[0].object.text
     );
+    // select mapper
+    if (!Object.keys(repoData).includes('AUTHOR')) {
+      mapper = v3Mapper;
+      version = '3';
+    }
     const repoMappedData = mapper.repo(repoData);
     result.repo = {
       ...repoMappedData,
@@ -153,13 +158,19 @@ const parser = (json, version, username, repo) => {
         username
       },
       name: repo,
-      readme: filter(files, f =>
-        ['README.MD', 'readme.md', 'readme.MD'].includes(f.name)
-      )[0].object.text
+      readme: get(
+        files.find(f =>
+          ['README.MD', 'readme.md', 'readme.MD'].includes(f.name)
+        ),
+        'object.text',
+        null
+      )
     };
   } catch (e) {
     console.log(e);
-    errors.push(createError('Mailformed file', '/info.json', e.message));
+    errors.push(
+      createError('Mailformed file', '/info.json', e.message, 'error')
+    );
   }
 
   // get cogs
@@ -169,7 +180,8 @@ const parser = (json, version, username, repo) => {
       createError(
         'No cogs were found',
         '/',
-        'Repo can still be added for future use'
+        'Repo can still be added for future use',
+        'warning'
       )
     );
   }
@@ -180,7 +192,8 @@ const parser = (json, version, username, repo) => {
         createError(
           'Cog is missing an info.json',
           `/${c.name}`,
-          'This cog will not be added to cogs.red'
+          'This cog will not be added to cogs.red',
+          'warning'
         )
       );
       result.cogs.missing.push(c.name);
@@ -202,12 +215,17 @@ const parser = (json, version, username, repo) => {
       });
     } catch (e) {
       errors.push(
-        createError('Mailformed file', `/${c.name}/info.json`, e.message)
+        createError(
+          'Mailformed file',
+          `/${c.name}/info.json`,
+          e.message,
+          'error'
+        )
       );
       result.cogs.broken.push(c.name);
     }
   });
-  return { errors, result };
+  return { errors, result, version };
 };
 
 exports.handler = async event => {
@@ -238,7 +256,7 @@ exports.handler = async event => {
   });
 };
 
-const saveRepo = async ({ username, repo, branch, result }) => {
+const saveRepo = async ({ username, repo, branch, result, version }) => {
   // check if repo exists
   const repoGetParams = queryByPath(
     REPOS_TABLE,
@@ -253,6 +271,7 @@ const saveRepo = async ({ username, repo, branch, result }) => {
   let created = Date.now();
   let updated = null;
   let hidden = false;
+  let type = 'unapproved';
 
   // if exists - use old creation date and new update date
   const repoInDb = await dynamoDb.query(repoGetParams).promise();
@@ -261,6 +280,7 @@ const saveRepo = async ({ username, repo, branch, result }) => {
     updated = created;
     created = repoInDb.Items[0].created;
     hidden = repoInDb.hidden;
+    type = repoInDb.type;
   }
 
   // save repo
@@ -269,8 +289,10 @@ const saveRepo = async ({ username, repo, branch, result }) => {
     Item: {
       ...result.repo,
       path: `${username}/${repo}/${branch}`,
-      short: result.repo.short.length ? result.repo.short : null,
       authorName: username,
+      type,
+      short: result.repo.short.length ? result.repo.short : null,
+      version,
       branch,
       default_branch: result.defaultBranch === branch,
       created,
@@ -298,10 +320,21 @@ const saveRepo = async ({ username, repo, branch, result }) => {
   }
 };
 
-const saveCog = async (cog, username, repo, branch, result) => {
+const saveCog = async (
+  cog,
+  username,
+  repo,
+  branch,
+  result,
+  version,
+  savedRepo
+) => {
   const { name } = cog;
+  const {
+    result: { type }
+  } = savedRepo;
   // check if cog exists
-  const repoGetParams = queryByPath(
+  const cogGetParams = queryByPath(
     COGS_TABLE,
     username,
     `${username}/${repo}/${name}`,
@@ -311,23 +344,25 @@ const saveCog = async (cog, username, repo, branch, result) => {
     }
   );
 
+  // cogs.red specific attributes
   let created = Date.now();
   let updated = null;
   let hidden = false;
-  let type = 'unapproved';
+  let reports = [];
+  let qaNotified = false;
 
   // if exists - use old creation date and new update date
-  const cogInDb = await dynamoDb.query(repoGetParams).promise();
+  const cogInDb = await dynamoDb.query(cogGetParams).promise();
   if (cogInDb.Count) {
     // using already created timestamp for consistency
     updated = created;
     created = cogInDb.Items[0].created;
     hidden = cogInDb.hidden;
-    // type is always changed separately, so we trust DB on this one
-    type = cogInDb.type;
+    reports = cogInDb.reports;
+    qaNotified = cogInDb.qaNotified;
   }
 
-  // save repo
+  // save cog
   const cogParams = {
     TableName: COGS_TABLE,
     Item: {
@@ -341,12 +376,15 @@ const saveCog = async (cog, username, repo, branch, result) => {
         branch,
         default_branch: result.defaultBranch === branch
       },
+      botVersion: cog.bot_version || version === '3' ? [3, 0, 0] : [2, 0, 0],
+      pythonVersion:
+        cog.python_version || version === '3' ? [3, 6, 4] : [3, 5, 0],
+      requiredCogs: {},
       created,
       updated,
       hidden,
-      bot_version: [2, 0, 0],
-      python_version: [3, 5, 0],
-      required_cogs: {},
+      reports,
+      qaNotified,
       links: {
         self: `/${username}/${repo}/${branch}/${name}`
       }
@@ -366,21 +404,24 @@ const saveCog = async (cog, username, repo, branch, result) => {
   });
 };
 
-const save = async (auth0User, { username, repo, branch, version }) => {
+const save = async (auth0User, { username, repo, branch }) => {
   try {
     const { ghToken } = await getIdToken(auth0User);
     const json = await graphql(username, repo, branch, ghToken);
-    const { result } = parser(json, version, username, repo);
+    const { result, version } = parser(json, username, repo);
 
     const savedRepo = await saveRepo({
       username,
       repo,
       branch,
-      result
+      result,
+      version
     });
 
     const savedCogs = await Promise.all(
-      result.cogs.valid.map(c => saveCog(c, username, repo, branch, result))
+      result.cogs.valid.map(c =>
+        saveCog(c, username, repo, branch, result, version, savedRepo)
+      )
     );
 
     return createResponse({

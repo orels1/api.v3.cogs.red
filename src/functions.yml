@@ -1,3 +1,4 @@
+# PARSER
 parseRepo:
   handler: src/parser.handler
   events:
@@ -7,6 +8,12 @@ parseRepo:
     - http:
         path: /parser/{version}/{username}/{repo}/{branch}
         method: get
+# save:
+#   handler: src/parser.testSave
+#   events:
+#     - http:
+#         path: /parser
+#         method: post
 
 # COGS
 getAllCogs:
@@ -36,6 +43,26 @@ getCogsForUser:
     - http:
         path: /cogs/{username}
         method: get
+removeCogByPath:
+  handler: src/cogs.removeCogByPath
+  events:
+    - http:
+        path: /cogs/{username}/{repo}/{cog}/{branch}
+        method: delete
+        authorizer: auth
+removeCogsByRepo:
+  handler: src/cogs.removeCogsByRepo
+  events:
+    - http:
+        path: /cogs/{username}/{repo}/{branch}
+        method: delete
+        authorizer: auth
+reportCog:
+  handler: src/cogs.report
+  events:
+    - http:
+        path: /cogs/{username}/{repo}/{cog}/{branch}/report
+        method: post
 
 # REPOS
 getAllRepos:
@@ -59,6 +86,13 @@ getReposForUser:
     - http:
         path: /repos/{username}
         method: get
+removeRepoByPath:
+  handler: src/repos.removeRepoByPath
+  events:
+    - http:
+        path: /repos/{username}/{repo}/{branch}
+        method: delete
+        authorizer: auth
 
 # V1 Sync
 syncCogs:
@@ -108,6 +142,8 @@ createGithubHook:
         method: post
         authorizer: auth
         cors: true
+  environment:
+    HOOK_SECRET: ${env:HOOK_SECRET}
 getGithubReposForUser:
   handler: src/github.getRepos
   events:
@@ -124,9 +160,84 @@ getGithubBranchesForRepo:
         method: get
         authorizer: auth
         cors: true
-hookTest:
-  handler: src/github.hookTest
+recieveWebhook:
+  handler: src/github.webhook
   events:
     - http:
-        path: /hookTest/{username}/{repo}/{branch}
+        path: /github/hooks/{username}/{repo}/{branch}
         method: post
+  environment:
+    HOOK_SECRET: ${env:HOOK_SECRET}
+
+# PANEL
+getUserMeta:
+  handler: src/panel.getUserMeta
+  events:
+    - http:
+        path: /panel/meta
+        method: get
+        authorizer: auth
+        cors: true
+removeRepo:
+  handler: src/panel.removeRepo
+  events:
+    - http:
+        path: /panel/removeRepo/{username}/{repo}/{branch}
+        method: delete
+        authorizer: auth
+        cors: true
+hideRepo:
+  handler: src/panel.hideRepo
+  events:
+    - http:
+        path: /panel/hideRepo/{username}/{repo}/{branch}
+        method: put
+        authorizer: auth
+        cors: true
+approveRepo:
+  handler: src/panel.approveRepo
+  events:
+    - http:
+        path: /panel/approve/{username}/{repo}/{branch}
+        method: post
+        authorizer: auth
+getReportsPreRepo:
+  handler: src/panel.getReportsPerRepo
+  events:
+    - http:
+        path: /panel/reports
+        method: get
+        authorizer: auth
+
+# Tags
+getTopTags:
+  handler: src/tags.getTop
+  events:
+    - http:
+        path: /tags/top
+        method: get
+
+# USERS
+getUsers:
+  handler: src/users.get
+  events:
+    - http:
+        path: /users
+        method: get
+        authorizer: auth
+updateUser:
+  handler: src/users.updateUser
+  events:
+    - http:
+        path: /users/{id}
+        method: patch
+        authorizer: auth
+
+# SEARCH
+search:
+  handler: src/search.search
+  events:
+    - http:
+        path: /search/{term}
+        method: get
+        cors: true

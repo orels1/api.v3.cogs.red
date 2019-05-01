@@ -44,6 +44,7 @@ provider:
     COGS_TABLE: ${self:custom.cogsTable}
     REPOS_TABLE: ${self:custom.reposTable}
     GITHUB_TOKEN: ${env:GH_TOKEN}
+    WH_URL: ${env:WH_URL}
 
 functions:
   - ${file(./src/functions.yml)}

@@ -6,6 +6,7 @@ const {
   getIdToken,
   createOctokit
 } = require('./utils');
+const { notify } = require('./discord');
 const { remove: removeCog } = require('./cogs');
 const { save } = require('./parser');
 
@@ -106,12 +107,27 @@ exports.createGithubHook = async event => {
   // create github webhook
   const body = JSON.parse(event.body);
   const { username, repo, branch } = body;
-  const { data } = await createOctokit(ghToken).repos.createHook({
+  const hookUrl = `http://cogs.eu.eu.ngrok.io/github/hooks/${username}/${repo}/${branch}`;
+  const client = createOctokit(ghToken);
+  // check if hook exists
+  const { data: existing } = await client.repos.getHooks({
+    owner: username,
+    repo
+  });
+  if (existing.find(h => h.config.url === hookUrl)) {
+    // parse and save the repo
+    await save(auth0User, { username, repo, branch });
+    return createResponse({
+      results: existing.find(h => h.config.url === hookUrl)
+    });
+  }
+  // create a new hook
+  const { data } = await client.repos.createHook({
     name: 'web',
     owner: username,
     repo,
     config: {
-      url: `http://cogs.eu.eu.ngrok.io/github/hooks/${username}/${repo}/${branch}`,
+      url: hookUrl,
       content_type: 'json',
       secret: HOOK_SECRET
     },
@@ -148,7 +164,10 @@ exports.webhook = async event => {
       branch: branch,
       repo: repo,
       username: username,
-      version: 'v2'
+    });
+    await notify({
+      title: 'A new repo was added',
+      content: `Take a look at [this](https://dev.v3.cogs.red/${username}/${repo}/${branch})`
     });
     return createResponse({});
   }
@@ -205,7 +224,6 @@ exports.webhook = async event => {
       branch: parsed.branch,
       repo: parsed.repo,
       username: parsed.username,
-      version: 'v2'
     });
   }
   return createResponse({});

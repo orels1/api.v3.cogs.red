@@ -86,14 +86,10 @@ exports.getReposForUser = async event => {
 
   try {
     const result = await dynamoDb.query(params).promise();
-    if (result.Count) {
-      return createResponse({
-        results: result.Items,
-        count: result.Count
-      });
-    } else {
-      return createResponse({ error: 'User not found' }, 404);
-    }
+    return createResponse({
+      results: result.Items,
+      count: result.Count
+    });
   } catch (e) {
     console.error(e);
     return createResponse({ error: 'Could not get repos for user' }, 503);

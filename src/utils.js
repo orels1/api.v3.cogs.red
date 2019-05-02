@@ -205,7 +205,7 @@ exports.getIdToken = async event => {
     return {
       ghToken: user.identities.filter(i => i.connection === 'github')[0]
         .access_token,
-      user: user.name,
+      user: user.nickname,
       auth0User: user.user_id
     };
   } catch (e) {

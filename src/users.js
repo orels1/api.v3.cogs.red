@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const { getAuth0User, adminCheck, createResponse } = require('./utils');
 const { getAuth0ManagementToken } = require('./auth');
 

@@ -102,7 +102,7 @@ exports.approveRepo = async event => {
   const { username, repo, branch } = event.pathParameters;
   const state = JSON.parse(event.body).approved;
   const repoPath = `${username}/${repo}/${branch}`;
-  const repoResult = await approveRepo(repoPath, user.name, state);
+  const repoResult = await approveRepo(repoPath, username, state);
   if (repoResult.error) {
     return createResponse(repoResult);
   }

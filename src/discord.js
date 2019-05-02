@@ -7,7 +7,7 @@ const levelMap = {
   success: 0x00f97d
 };
 
-const createEmbed = ({ title, content, level = info }) => ({
+const createEmbed = ({ title, content, level = 'info' }) => ({
   embeds: [
     {
       title,

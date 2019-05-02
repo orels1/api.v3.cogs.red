@@ -23,8 +23,9 @@ exports.get = async event => {
     }
   });
   const json = await resp.json();
+  const enhanced = json.map(u => ({ ...u, app_metadata: u.app_metadata || {}}))
   return createResponse({
-    results: json
+    results: enhanced
   });
 };
 

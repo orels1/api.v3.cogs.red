@@ -107,7 +107,7 @@ exports.createGithubHook = async event => {
   // create github webhook
   const body = JSON.parse(event.body);
   const { username, repo, branch } = body;
-  const hookUrl = `http://cogs.eu.eu.ngrok.io/github/hooks/${username}/${repo}/${branch}`;
+  const hookUrl = `http://cogs.stage.eu.ngrok.io/github/hooks/${username}/${repo}/${branch}`;
   const client = createOctokit(ghToken);
   // check if hook exists
   const { data: existing } = await client.repos.getHooks({

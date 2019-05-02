@@ -107,9 +107,15 @@ const getVersionFlag = event =>
 
 exports.getVersionFlag = getVersionFlag;
 
-exports.getVersionFilter = (event, cog) => ({
-  [cog ? 'botVersion[0]' : 'version']: getVersionFlag(event)
-});
+exports.getVersionFilter = (event, cog) => {
+  const versionFlag = getVersionFlag(event);
+  if (!versionFlag) {
+    return ({})
+  }
+  return ({
+    [cog ? 'botVersion[0]' : 'version']: versionFlag
+  })
+};
 
 exports.cogVersionFilter = (items, version) => {
   const parsedVersion = parseInt(version, 10);

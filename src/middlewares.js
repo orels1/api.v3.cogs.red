@@ -8,7 +8,7 @@ exports.getBody = event => {
   } catch (e) {
     return {
       err: {
-        error: 'Body mailformed',
+        error: 'Body malformed',
         error_details: e.message
       },
       body: null

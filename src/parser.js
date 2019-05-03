@@ -169,7 +169,7 @@ const parser = (json, username, repo) => {
   } catch (e) {
     console.log(e);
     errors.push(
-      createError('Mailformed file', '/info.json', e.message, 'error')
+      createError('Malformed file', '/info.json', e.message, 'error')
     );
   }
 
@@ -216,7 +216,7 @@ const parser = (json, username, repo) => {
     } catch (e) {
       errors.push(
         createError(
-          'Mailformed file',
+          'Malformed file',
           `/${c.name}/info.json`,
           e.message,
           'error'

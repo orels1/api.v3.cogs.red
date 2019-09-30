@@ -45,7 +45,7 @@
     "compression": "^1.7.1",
     "cors": "^2.8.4",
     "feathers-nedb": "^3.0.0",
-    "helmet": "^3.11.0",
+    "helmet": "^3.21.1",
     "lodash": "^4.17.5",
     "nedb": "^1.8.0",
     "node-fetch": "^2.0.0",

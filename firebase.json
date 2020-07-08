@@ -1,0 +1,51 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8081
+    }
+  },
+  "hosting": {
+    "public": "public",
+    "rewrites": [
+      {
+        "source": "/repos{,/**}",
+        "function": "repos"
+      },
+      {
+        "source": "/cogs{,/**}",
+        "function": "cogs"
+      },
+      {
+        "source": "/parser{,/**}",
+        "function": "parser"
+      },
+      {
+        "source": "/github{,/**}",
+        "function": "github"
+      },
+      {
+        "source": "/users{,/**}",
+        "function": "users"
+      },
+      {
+        "source": "/panel{,/**}",
+        "function": "panel"
+      },
+      {
+        "source": "/search{,/**}",
+        "function": "search"
+      },
+      {
+        "source": "/reports{,/**}",
+        "function": "reports"
+      }
+    ]
+  }
+}

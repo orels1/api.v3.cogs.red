@@ -1,0 +1,15 @@
+{
+  "auth0": {
+    "domain": "cogs.auth0.com",
+    "api_client_secret": "",
+    "client_id": "",
+    "audience": "https://panel.cogs.red",
+    "api_client_id": ""
+  },
+  "system": {
+    "hook_secret": "api.v3.cogs.red",
+    "env": "development",
+    "discord_hook": "https://discord.gg",
+    "gh_key": ""
+  }
+}

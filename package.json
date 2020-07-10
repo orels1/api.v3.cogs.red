@@ -46,7 +46,7 @@
     "cors": "^2.8.4",
     "feathers-nedb": "^3.0.0",
     "helmet": "^3.11.0",
-    "lodash": "^4.17.5",
+    "lodash": "^4.17.16",
     "nedb": "^1.8.0",
     "node-fetch": "^2.0.0",
     "passport-github": "^1.1.0",
